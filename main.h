@@ -7,12 +7,19 @@
 
 #define ROOT 0
 
-#define FINISH 1
-#define APP_MSG 2
-#define GIVE_YOUR_STATE 3
-#define MY_STATE_IS 4
+#define JO_CHCA 0
+#define POZWALAM 1
+#define UMIERAM 2
+#define PLACEHOLDER 3 // zmienic
+#define BANDERSNACHOWNIA 4
+
+#define CHCE 0
+//pozwalam ju jest
+#define ZAJMUJE 2
+#define ODDAJE 3
+
 /* MAX_HANDLERS musi się równać wartości ostatniego typu pakietu + 1 */
-#define MAX_HANDLERS 5 
+#define MAX_HANDLERS 6 
 
 //stany
 #define ifnt else
@@ -24,19 +31,26 @@
 #define SIEDZE_W_WYPYCHALNI 6
 #define LECZONY 7
 
+
+//pojedyncze requesty
+#define LICZBA_BRONI
 #define MIECZ 0
 #define KARABIN 1
+#define MEDYK 2
 
 //zasoby
 #define LICZBA_MIECZY 3
 #define LICZBA_KARABINOW 4
 #define LICZBA_SANITARIUSZY 2
-#define MIEJSCE_W_WYPYCHALNI 10
+#define ILOSC_MIEJSCA_W_WYPYCHALNI 10
 
 //zmienne
 #define MAX_ROZMIAR_BANDERSNATCHA 5
 #define SZANSA_ZGONU 3
 #define SZANSA_RANNOSCI 15
+#define CZAS_POLOWANIA 3
+#define CZAS_LECZENIA 3
+#define CZAS_WYPYCHANIA 3
 
 
 

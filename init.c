@@ -125,8 +125,17 @@ void inicjuj(int *argc, char ***argv)
 
 void finalizuj(void)
 {
-    //TODO DESTROYE
-    // pthread_mutex_destroy( &konto_mut);
+    pthread_mutex_destroy( &zegar_mut);
+    pthread_mutex_destroy( &zgoda_mut);
+    pthread_mutex_destroy( &currentId_mut);
+    pthread_mutex_destroy( &stan_mut);
+    pthread_mutex_destroy( &potencjalne_miejsce_w_wypychalni_mut);
+    pthread_mutex_destroy( &miejsce_niezajete_w_wypychalni_mut);
+    pthread_mutex_destroy( &martwi_mut);
+    pthread_mutex_destroy( &miecz_mut);
+    pthread_mutex_destroy( &karabin_mut);
+    pthread_mutex_destroy( &sanitariusz_mut);
+    pthread_mutex_destroy( &wypychalnia_mut);
     /* Czekamy, aż wątek potomny się zakończy */
     //println("czekam na wątek \"komunikacyjny\"\n" );
     pthread_join(threadCom,NULL);
