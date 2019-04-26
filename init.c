@@ -97,13 +97,15 @@ void inicjuj(int *argc, char ***argv)
     /* sklejone z stackoverflow */
     const int nitems=FIELDNO; // Struktura ma FIELDNO elementów - przy dodaniu pola zwiększ FIELDNO w main.h !
     int       blocklengths[FIELDNO] = {1,1,1,1}; /* tu zwiększyć na [4] = {1,1,1,1} gdy dodamy nowe pole */
-    MPI_Datatype typy[FIELDNO] = {MPI_INT, MPI_INT,MPI_INT,MPI_INT}; /* tu dodać typ nowego pola (np MPI_BYTE, MPI_INT) */
+    MPI_Datatype typy[FIELDNO] = {MPI_INT, MPI_INT,MPI_INT,MPI_INT,MPI_INT,MPI_INT}; /* tu dodać typ nowego pola (np MPI_BYTE, MPI_INT) */
     MPI_Aint     offsets[FIELDNO];
 
     offsets[0] = offsetof(packet_t, ts);
-    offsets[1] = offsetof(packet_t, kasa);
-    offsets[2] = offsetof(packet_t, dst);
-    offsets[3] = offsetof(packet_t, src);
+    offsets[1] = offsetof(packet_t, id);
+    offsets[2] = offsetof(packet_t, tresc);
+    offsets[3] = offsetof(packet_t, reszta);
+    offsets[4] = offsetof(packet_t, dst);
+    offsets[5] = offsetof(packet_t, src);
     /* tutaj dodać offset nowego pola (offsets[2] = ... */
 
     MPI_Type_create_struct(nitems, blocklengths, offsets, typy, &MPI_PAKIET_T);
@@ -119,14 +121,12 @@ void inicjuj(int *argc, char ***argv)
 
     pthread_create( &threadCom, NULL, comFunc, 0);
     pthread_create( &threadDelay, NULL, delayFunc, 0);
-    if (rank==ROOT) {
-	pthread_create( &threadM, NULL, monitorFunc, 0);
-    } 
 }
 
 void finalizuj(void)
 {
-    pthread_mutex_destroy( &konto_mut);
+    //TODO DESTROYE
+    // pthread_mutex_destroy( &konto_mut);
     /* Czekamy, aż wątek potomny się zakończy */
     //println("czekam na wątek \"komunikacyjny\"\n" );
     pthread_join(threadCom,NULL);

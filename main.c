@@ -1,21 +1,19 @@
 #include "main.h"
-
+#include <time.h>
 MPI_Datatype MPI_PAKIET_T;
 pthread_t threadCom, threadM;
 
 /* zamek do synchronizacji zmiennych współdzielonych */
-pthread_mutex_t konto_mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t zegar_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t stan_mut = PTHREAD_MUTEX_INITIALIZER;
 sem_t all_sem;
 
-/* Ile każdy proces ma na początku pieniędzy */
-int konto=STARTING_MONEY;
-
-// zegar Lamporta
 int zegarLamporta=0;
-
-/* suma zbierana przez monitor */
-int sum = 0;
+int stan=CHCE_BRON;
+int idOstatiegoRequesta=0;
+int otrzymaneZgody=0;
+int chcianaBron=0;
 
 /* end == TRUE oznacza wyjście z main_loop */
 volatile char end = FALSE;
@@ -35,10 +33,19 @@ typedef void (*f_w)(packet_t *);
    Funkcje handleróœ są na końcu pliku. Nie zapomnij dodać
      deklaracji zapowiadającej funkcji!
 */
-f_w handlers[MAX_HANDLERS] = { [GIVE_YOUR_STATE]=giveHandler,
+
+#define JO_CHCA 0
+#define POZWALAM 1
+#define UMIERAM 2
+#define PLACEHOLDER 3 // zmienic
+#define ZAJMUJE_BANDERSNACHOWNIE 4
+// #define CHCE_MIEJSCE_W_WYPYCHALNI 5 - juz jest
+
+f_w handlers[MAX_HANDLERS] = { [JO_CHCA]=giveHandler,
             [FINISH] = finishHandler,
             [MY_STATE_IS] = myStateHandler,
-            [APP_MSG] = appMsgHandler };
+            [APP_MSG] = appMsgHandler 
+            []};
 
 extern void inicjuj(int *argc, char ***argv);
 extern void finalizuj(void);
@@ -50,6 +57,29 @@ int getZegar(int inkrementowac){
     a=zegarLamporta;
 	pthread_mutex_unlock(&zegar_mut);
     return a;
+}
+
+int getStan(){
+     int a;
+    pthread_mutex_lock(&stan_mut);
+    a=stan;
+	pthread_mutex_unlock(&stan_mut);
+    return a;
+}
+
+// void getIdOStatniegoRequesta(int inkrementowac){
+//     int a=-1;
+//     pthread_mutex_lock(&zegar_mut);
+//     zegarLamporta+=inkrementowac;
+//     a=zegarLamporta;
+// 	pthread_mutex_unlock(&zegar_mut);
+//     return a;
+// }
+
+void zmienStan(int naCo){
+    pthread_mutex_lock(&stan_mut);
+    stan=naCo;
+	pthread_mutex_unlock(&stan_mut);
 }
 
 int setZegarToMax(int new){
@@ -78,70 +108,48 @@ int main(int argc, char **argv)
 /* Wątek główny - przesyłający innym pieniądze */
 void mainLoop(void)
 {
-    int prob_of_sending=PROB_OF_SENDING;
+    srand(time(NULL));
     int dst;
     packet_t pakiet;
     /* mały sleep, by procesy nie zaczynały w dokładnie tym samym czasie */
     struct timespec t = { 0, rank*50000 };
     struct timespec rem = { 1, 0 };
     nanosleep(&t,&rem); 
+    //
 
     /* pętla główna: sen, wysyłanie przelewów innym bankom */
     while (!end) {
-	int percent = rand()%2 + 1;
+	    int percent = rand()%2 + 1;
         struct timespec t = { percent, 0 };
         struct timespec rem = { 1, 0 };
         nanosleep(&t,&rem);
+        switch (stan){
+            case CHCE_BRON:
+            if((float)rand()/RAND_MAX>0.5)chcianaBron=MIECZ;
+            ifnt chcianaBron=KARABIN;
+            
+            println(" Jo chca %d\n",chcianaBron);
+            
+            pthread_mutex_lock(&zgoda_mut);
 
-	percent = rand()%100;
-        /* czy wysłać komuś przelew? */
-	if ((percent < prob_of_sending ) && (konto >0)) {
-            /* losujemy, komu wysłać przelew */
-	    do {
-		dst = rand()%(size);
-		//if (dst==size) MPI_Abort(MPI_COMM_WORLD,1); // strzeżonego :D
-	    } while (dst==rank);
-
-            /* losuję, ile kasy komuś wysłać */
-	    percent = rand()%konto;
-	    pakiet.kasa = percent;
-	    pthread_mutex_lock(&konto_mut);
-            konto-=percent;
-	    pthread_mutex_unlock(&konto_mut);
-        pakiet.ts=getZegar(1);
-	    sendPacket(&pakiet, dst, APP_MSG);
-            /* z biegiem czasu coraz rzadziej wysyłamy (przyda się do wykrywania zakończenia) */
-	    if (prob_of_sending > PROB_SENDING_LOWER_LIMIT)
-		prob_of_sending -= PROB_OF_SENDING_DECREASE;
-
-	    println("-> wysłałem %d do %d, ts: %d\n", pakiet.kasa, dst,pakiet.ts);
+            for(int i=0;i<size;i++){
+                if(rank!=i){
+                    packet_t tmp;
+                    tmp.tresc = chcianaBron; 
+                    tmp.ts=getZegar(1);
+                    tmp.id=idOstatiegoRequesta++;
+                    
+                    sendPacket(&tmp, i, JO_CHCA);
+                }
+            }
+            pthread_mutex_lock(&zgoda_mut);
+            println(" Dostalem zgody,zaczynam polowac\n");
+            zmienStan(POLUJE);
+            // sendPacket(&pakiet, dst, APP_MSG);
+            break;
+            
         }  
     }
-}
-
-/* Wątek monitora - tylko u ROOTa */
-void *monitorFunc(void *ptr)
-{
-    packet_t data;
-	/* MONITOR; Jego zadaniem ma być wykrycie, ile kasy jest w systemie */
-
-	// 5 sekund, coby procesy zdążyły namieszać w stanie globalnym
-    sleep(5);
-	// TUTAJ WYKRYWANIE STANu        
-    int i;
-    sem_init(&all_sem,0,0);
-    println("MONITOR START \n");
-    for (i=0;i<size;i++)  {
-	sendPacket(&data, i, GIVE_YOUR_STATE);
-    }
-    sem_wait(&all_sem);
-
-    for (i=1;i<size;i++) {
-	sendPacket(&data, i, FINISH);
-    }
-    sendPacket(&data, 0, FINISH);
-    P_RED; printf("\n\tW systemie jest: [%d]\n\n", sum);P_CLR
-    return 0;
 }
 
 /* Wątek komunikacyjny - dla każdej otrzymanej wiadomości wywołuje jej handler */
@@ -152,7 +160,7 @@ void *comFunc(void *ptr)
     packet_t pakiet;
     /* odbieranie wiadomości */
     while ( !end ) {
-	println("[%d] czeka na recv\n", rank);
+	// println("[%d] czeka na recv\n", rank);
         MPI_Recv( &pakiet, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         pakiet.src = status.MPI_SOURCE;
 
@@ -166,16 +174,11 @@ void *comFunc(void *ptr)
 void myStateHandler(packet_t *pakiet)
 {
     setZegarToMax(pakiet->ts);
-    static int statePacketsCnt = 0;
-
-    statePacketsCnt++;
-    sum += pakiet->kasa;
     
-    println("Suma otrzymana: %d, total: %d, ts: %d\n", pakiet->kasa, sum,pakiet->ts);
+    
+   
     //println( "%d statePackets from %d\n", statePacketsCnt, pakiet->src);
-    if (statePacketsCnt == size ) {
-        sem_post(&all_sem);
-    }
+    
     
 }
 
@@ -194,18 +197,13 @@ void giveHandler( packet_t *pakiet)
     println("dostałem GIVE STATE");
    
     packet_t tmp;
-    tmp.kasa = konto; 
     tmp.ts=getZegar(1);
-    sendPacket(&tmp, ROOT, MY_STATE_IS);
+    // sendPacket(&tmp, ROOT, MY_STATE_IS);
 }
 
 void appMsgHandler( packet_t *pakiet)
 {
     /* ktoś przysłał mi przelew */
-    println("\tdostałem %d od %d, ts: %d\n", pakiet->kasa, pakiet->src,pakiet->ts);
-    pthread_mutex_lock(&konto_mut);
-	konto+=pakiet->kasa;
-    println("Stan obecny: %d\n", konto);
-    pthread_mutex_unlock(&konto_mut);
+    
     setZegarToMax(pakiet->ts);
 }

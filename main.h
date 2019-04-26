@@ -14,7 +14,31 @@
 /* MAX_HANDLERS musi się równać wartości ostatniego typu pakietu + 1 */
 #define MAX_HANDLERS 5 
 
-#define STARTING_MONEY 1000
+//stany
+#define ifnt else
+#define CHCE_BRON 1
+#define POLUJE 2
+#define MARTWY 3
+#define RANNY 4
+#define CHCE_MIEJSCE_W_WYPYCHALNI 5
+#define SIEDZE_W_WYPYCHALNI 6
+#define LECZONY 7
+
+#define MIECZ 0
+#define KARABIN 1
+
+//zasoby
+#define LICZBA_MIECZY 3
+#define LICZBA_KARABINOW 4
+#define LICZBA_SANITARIUSZY 2
+#define MIEJSCE_W_WYPYCHALNI 10
+
+//zmienne
+#define MAX_ROZMIAR_BANDERSNATCHA 5
+#define SZANSA_ZGONU 3
+#define SZANSA_RANNOSCI 15
+
+
 
 #include <mpi.h>
 #include <stdlib.h>
@@ -25,11 +49,12 @@
 #include <string.h>
 
 /* FIELDNO: liczba pól w strukturze packet_t */
-#define FIELDNO 4
+#define FIELDNO 6
 typedef struct {
     int ts; /* zegar lamporta */
-    int kasa; 
-
+    int id;
+    int tresc; 
+    int reszta;
     int dst; /* pole ustawiane w sendPacket */
     int src; /* pole ustawiane w wątku komunikacyjnym na rank nadawcy */
     /* przy dodaniu nowych pól zwiększy FIELDNO i zmodyfikuj 
@@ -47,18 +72,17 @@ extern pthread_t threadCom, threadM, threadDelay;
 /* synchro do zmiennej konto */
 extern pthread_mutex_t konto_mut;
 
-/* argument musi być, bo wymaga tego pthreads. Wątek monitora, który po jakimś czasie ma wykryć stan */
-extern void *monitorFunc(void *);
+
 /* argument musi być, bo wymaga tego pthreads. Wątek komunikacyjny */
 extern void *comFunc(void *);
 
 extern void sendPacket(packet_t *, int, int);
 
-#define PROB_OF_SENDING 35
-#define PROB_OF_PASSIVE 5
-#define PROB_OF_SENDING_DECREASE 1
-#define PROB_SENDING_LOWER_LIMIT 1
-#define PROB_OF_PASSIVE_INCREASE 1
+// #define PROB_OF_SENDING 35
+// #define PROB_OF_PASSIVE 5
+// #define PROB_OF_SENDING_DECREASE 1
+// #define PROB_SENDING_LOWER_LIMIT 1
+// #define PROB_OF_PASSIVE_INCREASE 1
 
 /* makra do wypisywania na ekranie */
 #define P_WHITE printf("%c[%d;%dm",27,1,37);
@@ -72,7 +96,7 @@ extern void sendPacket(packet_t *, int, int);
 #define P_CLR printf("%c[%d;%dm",27,0,37);
 
 /* Tutaj dodaj odwołanie do zegara lamporta */
-#define println(FORMAT, ...) printf("%c[%d;%dm [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, ##__VA_ARGS__, 27,0,37);
+#define println(FORMAT, ...) printf("%c[%d;%dm [%d] [%d]: " FORMAT "%c[%d;%dm\n",  27, (1+(rank/7))%2, 31+(6+rank)%7, zegarLamporta, rank, ##__VA_ARGS__, 27,0,37);
 
 /* macro debug - działa jak printf, kiedy zdefiniowano
    DEBUG, kiedy DEBUG niezdefiniowane działa jak instrukcja pusta 
