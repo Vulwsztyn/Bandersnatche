@@ -3,7 +3,7 @@
 MPI_Datatype MPI_PAKIET_T;
 pthread_t threadCom, threadM;
 
-/* zamki do synchronizacji zmiennych współdzielonych */
+/* zamek do synchronizacji zmiennych współdzielonych */
 pthread_mutex_t zegar_mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t currentId_mut = PTHREAD_MUTEX_INITIALIZER;
@@ -13,20 +13,16 @@ pthread_mutex_t miejsce_niezajete_w_wypychalni_mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t martwi_mut = PTHREAD_MUTEX_INITIALIZER;
 
 //muteksy zgadzania sie
-
-pthread_mutex_t sanitariusz_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t wypychalnia_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
-
-//broniowe
 pthread_mutex_t miecz_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t karabin_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t sanitariusz_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t wypychalnia_zgoda_mut = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t all_sem;
 
 int zegarLamporta=0;
 int stan=CHCE_BRON;
 
-int zegarOstatniegoRequesta=0;
 int idOstatiegoRequesta=0;
 int otrzymaneZgody=0;
 
@@ -93,7 +89,7 @@ int zwiekszRzeczzMuteksami(int *co,pthread_mutex_t *muteks,int oIle){
     *co+=oIle;
     a=*co;
 	pthread_mutex_unlock(muteks);
-
+ 
     return a;
 }
 
@@ -113,6 +109,15 @@ int getStan(){
 	pthread_mutex_unlock(&stan_mut);
     return a;
 }
+
+// void getIdOStatniegoRequesta(int inkrementowac){
+//     int a=-1;
+//     pthread_mutex_lock(&zegar_mut);
+//     zegarLamporta+=inkrementowac;
+//     a=zegarLamporta;
+// 	pthread_mutex_unlock(&zegar_mut);
+//     return a;
+// }
 
 void zerujZgody(){
     pthread_mutex_lock(&zgoda_mut);
@@ -134,6 +139,7 @@ int setZegarToMax(int new){
     a=zegarLamporta;
 	pthread_mutex_unlock(&zegar_mut);
     return a;
+
 }
 
 int main(int argc, char **argv)
@@ -148,29 +154,10 @@ int main(int argc, char **argv)
 }
 
 float myRandomFloat(){
-    return (float)((float)rand()/(float)RAND_MAX);    
+    return (float)((float)rand()/ (float)RAND_MAX);    
 }
 
-void czekajNaZgode(){
-    pthread_mutex_lock(&zgoda_mut);
-    pthread_mutex_unlock(&zgoda_mut);
-}
-
-void OurBroadcast(int coChce){
-    zerujZgody();
-    idOstatiegoRequesta++;
-    int zegarOstatiegoRequesta=getZegar(1);
-    packet_t tmp;
-    tmp.tresc = coChce; 
-    tmp.ts=zegarOstatiegoRequesta;
-    tmp.id=idOstatiegoRequesta;
-    for(int i=0;i<size;i++){
-        if(rank!=i){
-            sendPacket(&tmp, i, JO_CHCA);
-        }
-    }
-}
-
+/* Wątek główny - przesyłający innym pieniądze */
 void mainLoop(void)
 {
     srand(time(NULL));
@@ -191,41 +178,66 @@ void mainLoop(void)
         switch (stan){
             case CHCE_BRON:
                 wybranaBron=(int)(myRandomFloat()*LICZBA_BRONI);
+                juzWybralemBron=1;
+                
                 println(" Jo chca %d\n",wybranaBron);
+                
                 pthread_mutex_lock(&zgoda_mut);
-                OurBroadcast(wybranaBron);
-                czekajNaZgode();
+
+                for(int i=0;i<size;i++){
+                    if(rank!=i){
+                        packet_t tmp;
+                        tmp.tresc = wybranaBron; 
+                        tmp.ts=getZegar(1);
+                        idOstatiegoRequesta++;
+                        tmp.id=idOstatiegoRequesta;
+                        sendPacket(&tmp, i, JO_CHCA);
+                    }
+                }
+                pthread_mutex_lock(&zgoda_mut);
+                pthread_mutex_unlock(&zgoda_mut);
+
                 println(" Dostalem zgody,zaczynam polowac\n");
                 pthread_mutex_lock(bron_zgoda_mut(wybranaBron));
                 zmienStan(POLUJE);
+                juzWybralemBron=0;
+                // sendPacket(&pakiet, dst, APP_MSG);
                 break;
             case POLUJE:
                 sleep(CZAS_POLOWANIA);
                 pthread_mutex_unlock(bron_zgoda_mut(wybranaBron));
-                wybranaBron=-1;
-                zmienStan(CHCE_BRON);
+                float r=myRandomFloat()*100;
+                if(r<SZANSA_ZGONU){
+                    zmienStan(MARTWY);
+                }
+                ifnt{
+                    r-=SZANSA_ZGONU;
+                    if(r<SZANSA_RANNOSCI){
+                        zmienStan(RANNY);
+                    }
+                    ifnt{
+                        zmienStan(CHCE_MIEJSCE_W_WYPYCHALNI);
+                    }
+                }
                 break;
-                // int r=(int)myRandomFloat()*100;
-                // if(r<SZANSA_ZGONU){
-                //     zmienStan(MARTWY);
-                // }
-                // ifnt{
-                //     r-=SZANSA_ZGONU;
-                //     if(r<SZANSA_RANNOSCI){
-                //         zmienStan(RANNY);
-                //     }
-                //     ifnt{
-                //         zmienStan(CHCE_MIEJSCE_W_WYPYCHALNI);
-                //     }
-                // }
-                // break;
             case MARTWY:
                 end=TRUE;
                 break;
             case RANNY:
                 pthread_mutex_lock(&zgoda_mut);
-                OurBroadcast(MEDYK);
-                czekajNaZgode();
+                for(int i=0;i<size;i++){
+                    if(rank!=i){
+                        packet_t tmp;
+                        tmp.tresc = MEDYK; 
+                        tmp.ts=getZegar(1);
+                        idOstatiegoRequesta++;
+                        tmp.id=idOstatiegoRequesta;
+                        sendPacket(&tmp, i, JO_CHCA);
+                    }
+                }
+                pthread_mutex_lock(&zgoda_mut);
+                pthread_mutex_unlock(&zgoda_mut);
+
                 println(" Dostalem zgody,zaczynam sie leczyc\n");
                 pthread_mutex_lock(&sanitariusz_zgoda_mut);
                 zmienStan(LECZONY);
@@ -236,25 +248,27 @@ void mainLoop(void)
                 //to jest zle
                 //ustawRzeczzMuteksami(miejsceNieZajetePrzezBedacychwWypychalni,miejsce_niezajete_w_wypychalni_mut,MAX_ROZMIAR_BANDERSNATCHA*(size-zwiekszRzeczzMuteksami(liczbaMartwychLowcow,martwi_mut,0)));
                 ustawRzeczzMuteksami(&potencjalnieZajeteMiejsce,&potencjalne_miejsce_w_wypychalni_mut,MAX_ROZMIAR_BANDERSNATCHA*(size-zwiekszRzeczzMuteksami(&liczbaMartwychLowcow,&martwi_mut,0)));
-                idOstatiegoRequesta++;
+                
                 for(int i=0;i<size;i++){
                     if(rank!=i){
                         packet_t tmp;
                         tmp.tresc = CHCE;
                         tmp.reszta = rozmiarMojegoBandersnatcha;
                         tmp.ts=getZegar(1);
+                        idOstatiegoRequesta++;
                         tmp.id=idOstatiegoRequesta;
                         sendPacket(&tmp, i, BANDERSNACHOWNIA);
                     }
                 }
-                czekajNaZgode();
-                idOstatiegoRequesta++;
+                pthread_mutex_lock(&zgoda_mut);
+                pthread_mutex_unlock(&zgoda_mut);
                 for(int i=0;i<size;i++){
                     if(rank!=i){
                         packet_t tmp;
                         tmp.tresc = ZAJMUJE;
                         tmp.reszta = rozmiarMojegoBandersnatcha;
                         tmp.ts=getZegar(1);
+                        idOstatiegoRequesta++;
                         tmp.id=idOstatiegoRequesta;
                         sendPacket(&tmp, i, BANDERSNACHOWNIA);
                     }
@@ -265,13 +279,13 @@ void mainLoop(void)
             case SIEDZE_W_WYPYCHALNI:
                 sleep(CZAS_WYPYCHANIA);
                 pthread_mutex_unlock(&wypychalnia_zgoda_mut);
-                idOstatiegoRequesta++;
                 for(int i=0;i<size;i++){
                     if(rank!=i){
                         packet_t tmp;
                         tmp.tresc = ODDAJE;
                         tmp.reszta = rozmiarMojegoBandersnatcha;
                         tmp.ts=getZegar(1);
+                        idOstatiegoRequesta++;
                         tmp.id=idOstatiegoRequesta;
                         sendPacket(&tmp, i, BANDERSNACHOWNIA);
                     }
@@ -299,11 +313,10 @@ void *comFunc(void *ptr)
 	// println("[%d] czeka na recv\n", rank);
         MPI_Recv( &pakiet, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         pakiet.src = status.MPI_SOURCE;
-        setZegarToMax(pakiet.ts);
-        //TODO - do watku
-        // handlers[(int)status.MPI_TAG](&pakiet); // zamiast wielkiego switch status.MPI_TAG... case X: handler()
-        pthread_t new_thread;
-        pthread_create(&new_thread,NULL,handlers[(int)status.MPI_TAG],&pakiet);
+        //TODO - test this shit
+        if(!fork()){
+            handlers[(int)status.MPI_TAG](&pakiet); // zamiast wielkiego switch status.MPI_TAG... case X: handler()
+        }
     }
     println(" Koniec! ");
     return 0;
@@ -317,36 +330,36 @@ void joChcaHandler(packet_t *pakiet)
         case KARABIN:
             while (2>1){
                 int zegar=getZegar(0);
-                pthread_mutex_lock(bron_zgoda_mut(pakiet->tresc));
+                pthread_mutex_unlock(bron_zgoda_mut(wybranaBron));
                 //TODO - potwierdzic ze dobrze
                 // jezeli akurat nie chce broni (ani nie poluje ta bronia, ale to ogarnia muteks)
                 //lub chce inna bron
                 //lub ziomek ma nizszy zegar albo taki sam ale nizszy rank
-                int zegarPozwala = (pakiet->ts<zegarOstatniegoRequesta||(pakiet->ts==zegarOstatniegoRequesta&&rank>pakiet->src));
-                if ((wybranaBron!=pakiet->tresc)||zegarPozwala){
+                if ((getStan()!=JO_CHCA)||(juzWybralemBron==TRUE&&wybranaBron!=pakiet->tresc)||pakiet->ts<zegar||(pakiet->ts==zegar&&rank>pakiet->src)){
                     packet_t tmp;
                     tmp.tresc = pakiet->tresc; 
                     tmp.ts=getZegar(1);
                     tmp.id=pakiet->id;
                     tmp.reszta=JO_CHCA;
                     sendPacket(&tmp, pakiet->src, JO_CHCA);
-                    pthread_mutex_unlock(bron_zgoda_mut(pakiet->tresc));
+                    pthread_mutex_unlock(bron_zgoda_mut(wybranaBron));
                     break;
                 }
                 ifnt{
-                    pthread_mutex_unlock(bron_zgoda_mut(pakiet->tresc));
+                    pthread_mutex_unlock(bron_zgoda_mut(wybranaBron));
                     //jakis wait???
                 }
             }
             break;
         case MEDYK:
             while (2>1){
+            
+            int zegar=getZegar(0);
             pthread_mutex_lock(&sanitariusz_zgoda_mut);
             //TODO - potwierdzic ze dobrze
             // jezeli akurat nie jestem ranny (ani leczony, ale to ogarnia muteks)
             //lub ziomek ma nizszy zegar albo taki sam ale nizszy rank
-            int zegarPozwala = (pakiet->ts<zegarOstatniegoRequesta||(pakiet->ts==zegarOstatniegoRequesta&&rank>pakiet->src));
-            if ((getStan()!=RANNY)||zegarPozwala){
+            if ((getStan()!=RANNY)||pakiet->ts<zegar||(pakiet->ts==zegar&&rank>pakiet->src)){
                 packet_t tmp;
                 tmp.tresc = pakiet->tresc; 
                 tmp.ts=getZegar(1);
@@ -390,6 +403,7 @@ void pozwolenieHandler( packet_t *pakiet)
             }            
             break;
         case CHCE_MIEJSCE_W_WYPYCHALNI:
+        //TODO warunek
             if(2<1){
                 zerujZgody();
                 pthread_mutex_unlock(&zgoda_mut); 
@@ -411,7 +425,7 @@ void placeholderHandler( packet_t *pakiet)
 
 void bandersnatchowniaHandler( packet_t *pakiet)
 {
-    int temp;
+    int tmp;
     //4 opcje - tresc to ktora wiadomosc
     // reszta to rozmiar
     //CHCE
@@ -441,11 +455,11 @@ void bandersnatchowniaHandler( packet_t *pakiet)
             }
             }
             break;
+        //otrzymanie zgody
+        //TODO check id
         case POZWALAM:
-            //otrzymanie zgody
-            //TODO check id
-            temp=zwiekszRzeczzMuteksami(&potencjalnieZajeteMiejsce,&potencjalne_miejsce_w_wypychalni_mut,-MAX_ROZMIAR_BANDERSNATCHA);
-            if(temp<=rozmiarMojegoBandersnatcha)
+            tmp=zwiekszRzeczzMuteksami(&potencjalnieZajeteMiejsce,&potencjalne_miejsce_w_wypychalni_mut,-1*MAX_ROZMIAR_BANDERSNATCHA);
+            if(tmp<=rozmiarMojegoBandersnatcha)
             {
                 zerujZgody();
                 pthread_mutex_unlock(&zgoda_mut); 
@@ -457,5 +471,5 @@ void bandersnatchowniaHandler( packet_t *pakiet)
         case ODDAJE:
             zwiekszRzeczzMuteksami(&miejsceNieZajetePrzezBedacychwWypychalni,&miejsce_niezajete_w_wypychalni_mut,-(MAX_ROZMIAR_BANDERSNATCHA-pakiet->reszta));
             break;
+    };
     }
-}

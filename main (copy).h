@@ -13,14 +13,13 @@
 #define PLACEHOLDER 3 // zmienic
 #define BANDERSNACHOWNIA 4
 
-//Bandersnachowe:
 #define CHCE 0
-//POZWALAM juz jest
+//pozwalam ju jest
 #define ZAJMUJE 2
 #define ODDAJE 3
 
 /* MAX_HANDLERS musi się równać wartości ostatniego typu pakietu + 1 */
-#define MAX_HANDLERS 5 
+#define MAX_HANDLERS 6 
 
 //stany
 #define ifnt else
@@ -93,11 +92,12 @@ extern pthread_mutex_t stan_mut;
 extern pthread_mutex_t potencjalne_miejsce_w_wypychalni_mut;
 extern pthread_mutex_t miejsce_niezajete_w_wypychalni_mut;
 extern pthread_mutex_t martwi_mut;
+
+//muteksy zgadzania sie
 extern pthread_mutex_t miecz_zgoda_mut;
 extern pthread_mutex_t karabin_zgoda_mut;
 extern pthread_mutex_t sanitariusz_zgoda_mut;
 extern pthread_mutex_t wypychalnia_zgoda_mut;
-
 
 /* argument musi być, bo wymaga tego pthreads. Wątek komunikacyjny */
 extern void *comFunc(void *);
