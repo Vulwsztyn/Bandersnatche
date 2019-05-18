@@ -4,13 +4,14 @@
 /* boolean */
 #define TRUE 1
 #define FALSE 0
+#define bool char
 
 #define ROOT 0
 
 #define JO_CHCA 0
 #define POZWALAM 1
-#define UMIERAM 2
-#define PLACEHOLDER 3 // zmienic
+#define PLACEHOLDER 2 // zmienic
+#define UMIERAM 3 
 #define BANDERSNACHOWNIA 4
 
 //Bandersnachowe:
@@ -34,24 +35,24 @@
 
 
 //pojedyncze requesty
-#define LICZBA_BRONI 2
+#define LICZBA_TYPOW_BRONI 2
 #define MIECZ 0
 #define KARABIN 1
 #define MEDYK 2
 
 //zasoby
-#define LICZBA_MIECZY 3
-#define LICZBA_KARABINOW 4
-#define LICZBA_SANITARIUSZY 2
-#define ILOSC_MIEJSCA_W_WYPYCHALNI 10
+#define LICZBA_MIECZY 1
+#define LICZBA_KARABINOW 3
+#define LICZBA_SANITARIUSZY 1
+#define ILOSC_MIEJSCA_W_WYPYCHALNI 5
 
 //zmienne
 #define MAX_ROZMIAR_BANDERSNATCHA 5
 #define SZANSA_ZGONU 3
 #define SZANSA_RANNOSCI 15
 #define CZAS_POLOWANIA 3
-#define CZAS_LECZENIA 3
-#define CZAS_WYPYCHANIA 3
+#define CZAS_LECZENIA 12
+#define CZAS_WYPYCHANIA 10
 
 
 
@@ -106,8 +107,8 @@ extern void sendPacket(packet_t *, int, int);
 
 // #define PROB_OF_SENDING 35
 // #define PROB_OF_PASSIVE 5
-// #define PROB_OF_SENDING_DECREASE 1
-// #define PROB_SENDING_LOWER_LIMIT 1
+// #define PROB_OF_SENDING_DECREASE 1ZAJMUJE
+// #define PROB_SENDING_LOWER_LIMIT 1ZAJMUJE
 // #define PROB_OF_PASSIVE_INCREASE 1
 
 /* makra do wypisywania na ekranie */
